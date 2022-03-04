@@ -1,0 +1,1652 @@
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Scanner;
+import java.util.stream.IntStream;
+
+import static java.lang.System.out;
+import java.time.LocalDate;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;  
+import java.util.Date;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Random;
+
+class Debut {
+
+	static double prNow = 0;
+	static String rx3 = "A remplir";
+
+	static double prR1 = 1.84;
+	static double prR2 = 2.16;
+	static double prR3 = 0.93;
+	static double prR4 = 2.33;
+
+	private static double prM[] = new double[] {0,prR3,prR3+prR1,prR3+prR1+prR2,prR3+prR1+prR2+prR4};
+	private static String mName3[] = new String[] {"R3", "R1","R2","R4"};
+	
+	private static boolean inR3 = true;
+	private static boolean inR1 = false;
+	private static boolean inR2 = false;
+	private static boolean inR4 = false;
+
+	private static int iMx = 0;
+
+	public static void main(String args[]) {
+
+		DbConnection.connect();
+
+		Scanner keyboard = new Scanner(System.in);
+
+		String mName2[];
+		mName2 = new String[4];
+		mName2[0]="R3";
+		mName2[1]="R1";
+		mName2[2]="R2";
+		mName2[3]="R4";
+
+		rx3 = mName2[0];
+
+		out.print("\nAre you sure you want to delete everything from the tables? (y/n) : ");
+		if (keyboard.findWithinHorizon(".", 0).charAt(0) == 'y') {
+			deleteTable("tmpBool");
+			deleteTable("PAN");
+			deleteTable("ckLst");
+			deleteTable("ermPam");
+			deleteTable("ermTCk");
+			deleteTable("shpLst");
+			deleteTable("shpLst");
+		}
+
+		do {
+			for (int i = 0; i<=3; i++) {
+				int codeDsh = 0;
+				if (prNow >= prM[i] && prNow < prM[i+1]) {
+					out.println("\nNous sommes dans le " + mName2[i]);
+
+					int i1741 = 1; // à supprimer. C est pour ignorer le R3
+					if (inR3 && i1741==3) {
+//					if (inR3) {
+						int nbRg = 3; // erm ?
+						String ctg[] = new String[nbRg];
+						int rg = 1;
+						do { 
+							if (nbOfInt("bse","PamRgR3",rg) == 1) {
+								codeDsh = intGetsInt("codeDsh","bse","PamRgR3",rg);
+								updtBse(codeDsh, "PamOnly");
+								if(nbOfInt("ermPam","codeDsh",codeDsh) == 1) {
+									addToPan(codeDsh);
+								}
+							} else if (nbOfInt("bse","TCkRgR3",rg) == 1){
+								codeDsh = intGetsInt("codeDsh","bse","TCkRgR3",rg);
+								updtBse(codeDsh, "All");
+								if(nbOfInt("ermTCk","codeDsh",codeDsh) == 1) {
+									//									fromErmTCk(codeDsh);
+									fromTckToPan2(codeDsh,1);
+								}
+							}
+							ctg[rg-1]= intGetsString("ctg","bse","codeDsh",codeDsh);
+							rg++;
+						} while (rg <=nbRg && inR3); // fin erm?
+
+						if (inR3){
+							String[] UniqueCtg = Arrays.stream(ctg).distinct().toArray(String[]::new);
+							int rnkCtgRx[] = new int[UniqueCtg.length];
+							for (int i2=0; i2<UniqueCtg.length; i2++) {
+								rnkCtgRx[i2]= StringGetsInt("rnkDft","ctg","ctg",UniqueCtg[i2]);
+							}
+							Arrays.sort(rnkCtgRx);
+
+							int i3=0;
+							do {
+								String MostDftCtg = intGetsString("ctg","ctg","rnkDft", rnkCtgRx[i3]);
+								int nbOfDshRxCtg = nbOfRows2Str("bse","R3YN","Y","ctg",MostDftCtg);
+								int rnkInCtgDft[]; rnkInCtgDft = new int[nbOfDshRxCtg];
+								for(int i2=0; i2<nbOfDshRxCtg; i2++) {
+									rnkInCtgDft[i2]= StringX2GetsMultInt(nbOfDshRxCtg,"rnkInCtgDft",
+											"bse", "R3YN","Y","ctg", MostDftCtg)[i2];
+								}
+								Arrays.sort(rnkInCtgDft);
+
+								int i4=0;
+								do {
+									int codeDsh2 = StrIntGetInt("codeDsh","bse","ctg", MostDftCtg,"rnkInCtgDft",rnkInCtgDft[i4]);
+									int nbOfPceInPan = nbOfRowsIntStr("PAN","codeDsh", codeDsh2, "rx", mName2[i]);
+									double qteTtl = 0;
+									if (nbOfPceInPan >= 1) {
+										for (int i2=0; i2<nbOfPceInPan; i2++) {
+											qteTtl = qteTtl + strIntGetMultDble(nbOfPceInPan,"qteDsh","PAN","rx",
+													mName2[i2],"codeDsh",codeDsh2)[i2];
+										}
+									}
+									double qteMinTB = 1-qteTtl;
+									if (qteMinTB>0) {
+										needTb2(codeDsh2, qteMinTB);
+									}
+									i4++;
+								} while(i4<rnkInCtgDft.length && inR3);
+								i3++;
+							} while (i3<rnkCtgRx.length && inR3);
+
+
+							if (inR3){
+								codeDsh = 47;
+								updtBse(codeDsh, "All"); addToPan(codeDsh); // ce sera à modifier plus tard.
+							}
+						}
+					} 
+
+					int i1742 = 3; // à supprimer. C est pour ignorer le R1
+					if(inR1 && i1742 ==1) {
+//					if(inR1) {
+						codeDsh = 47;
+						updtBse(codeDsh, "All"); addToPan(codeDsh);
+						int nbRg = 5; // erm ?
+						String ctg[] = new String[nbRg];
+						int rg = 1;
+						do { 
+							if (nbOfInt("bse","PamUrgBF",rg) == 1) {
+								codeDsh = intGetsInt("codeDsh","bse","PamUrgBF",rg);
+								updtBse(codeDsh, "PamOnly");
+								if(nbOfInt("ermPam","codeDsh",codeDsh) == 1) {
+									addToPan(codeDsh);
+								}
+							} else if (nbOfInt("bse","TCkUrgBF",rg) == 1){
+								codeDsh = intGetsInt("codeDsh","bse","TCkUrgBF",rg);
+								updtBse(codeDsh, "All");
+								if(nbOfInt("ermTCk","codeDsh",codeDsh) == 1) {
+									//									fromErmTCk(codeDsh);
+									fromTckToPan2(codeDsh,1);
+								}
+							}
+							ctg[rg-1]= intGetsString("ctg","bse","codeDsh",codeDsh);
+							rg++;
+						} while (rg <=nbRg && inR1); // fin erm?
+					}
+
+					int i1743 = 1;
+					//					if(inR2) {
+					if(i1743 ==1) {
+						updtBse(57, "PamOnly");
+						updtBse(58, "PamOnly");
+						int nbOfRowsInPanWhereFc = nbOfRowsIntStr2V("PAN","codeDsh",57,58,"rx",mName3[iMx]);
+						double qteFcInPan [] = new double[nbOfRowsInPanWhereFc];
+						for(int i3114=0;i3114<nbOfRowsInPanWhereFc;i3114++) {
+							qteFcInPan [i3114]= strInt2VGetMultDble(nbOfRowsInPanWhereFc,"qteDsh","PAN","rx",mName3[iMx],"codeDsh",57,58)[i3114];
+						}
+						double qteTtlFcInPan = 0;
+						for(int i3456=0;i<nbOfRowsInPanWhereFc;i++) {
+							qteTtlFcInPan = qteTtlFcInPan + qteFcInPan[i3456];
+						}
+						double qteFcRstToAddPan = 1-qteTtlFcInPan;
+						if(qteFcRstToAddPan>0) {
+							Random rand = new Random();
+							int fcX = rand.nextInt(2) + 1 ;
+							if(fcX==1) {
+								codeDsh = 58;
+							}else {
+								codeDsh = 57;
+							}
+							updtBse(codeDsh,"All");
+							fromTckToPan2(codeDsh,qteFcRstToAddPan);
+						} // fc ok
+						
+						int nbRg = 4; // erm ?
+						String ctg[] = new String[nbRg];
+						int rg = 1;
+						do { 
+							int nbOfRwsInPamWthThisRg = nbOfRwsWthIntIn1Col("bse","pamRgR2",rg);
+							for (int i1917=0; i1917<nbOfRwsInPamWthThisRg; i1917++) {
+								updtBse(IntGetsMultInt(nbOfRwsInPamWthThisRg,"codeDsh","bse","pamRgR2",rg)[i1917], "PamOnly");
+							}
+							int nbOfRwsInTckWthThisRg = nbOfRwsWthIntIn1Col("bse","tckRgR2",rg);
+							for (int i1917=0; i1917<nbOfRwsInTckWthThisRg; i1917++) {
+								updtBse(IntGetsMultInt(nbOfRwsInTckWthThisRg,"codeDsh","bse","tckRgR2",rg)[i1917], "All");
+							}
+							int nbOfDshWthRxRgBbfInPam = nbOfDshWthRxRgBbfInPam("bse", "R2YN","Y","pamBbfYN","Y","pamRgR2",rg,"tmpQteErmPam",0);
+							String dates[] = new String[nbOfDshWthRxRgBbfInPam];
+							for(int i2148=0; i2148<nbOfDshWthRxRgBbfInPam; i2148++) {
+								dates[i2148]=getDtesToCompareThem(nbOfDshWthRxRgBbfInPam,"PamBBf","bse","R2YN","Y",
+										"pamBbfYN","Y","pamRgR2",rg,"tmpQteErmPam",0)[i2148];
+							}
+							String[] UniqueDates = Arrays.stream(dates).distinct().toArray(String[]::new);
+							Arrays.sort(UniqueDates);
+							for(int i2157=0; i<UniqueDates.length; i++) {
+								// UniqueDates[i2157]
+								
+							}
+							
+		
+							// la longueur est UniqueDates.length
+							
+							
+							
+							
+							
+							
+							int nbOfCellsWithThisRg = nbOfRwsWthIntIn1Col("bse","pamRgR2",rg)+nbOfRwsWthIntIn1Col("bse","tckRgR2",rg);
+							
+							
+//							for (int i1912=0; i1912<nbOfRwsWthIntIn1Col("bse","pamRgR2",rg); i++) {
+							for (int i1912=0; i1912<nbOfRwsWthIntIn1Col("bse","pamRgR2",rg); i++) {
+								
+							}
+							
+							
+							
+							
+							
+							
+							
+							if (nbOfInt("bse","PamUrgBF",rg) == 1) {
+								codeDsh = intGetsInt("codeDsh","bse","PamUrgBF",rg);
+								updtBse(codeDsh, "PamOnly");
+								if(nbOfInt("ermPam","codeDsh",codeDsh) == 1) {
+									addToPan(codeDsh);
+								}
+							} else if (nbOfInt("bse","TCkUrgBF",rg) == 1){
+								codeDsh = intGetsInt("codeDsh","bse","TCkUrgBF",rg);
+								updtBse(codeDsh, "All");
+								if(nbOfInt("ermTCk","codeDsh",codeDsh) == 1) {
+									//									fromErmTCk(codeDsh);
+									fromTckToPan2(codeDsh,1);
+								}
+							}
+							ctg[rg-1]= intGetsString("ctg","bse","codeDsh",codeDsh);
+							rg++;
+						} while (rg <=nbRg && inR1); // fin erm?
+						
+						
+						
+						
+						
+						int i1849 = keyboard.nextInt();
+						
+						
+						
+						
+						updtBse(59, "PamOnly");
+						if(nbOfInt("ermPam","codeDsh",codeDsh) == 1) {
+							addToPan(codeDsh);
+						} else {
+							out.println("lgc? (y/n) : ");
+							if (keyboard.nextLine().equals("n")) {
+								
+							} else {
+								out.println("how many : ");
+								int nbOfLgc = keyboard.nextInt();
+								int lgcCode[] = new int[nbOfLgc];
+								for (int i1839=0; i1839<nbOfLgc; i1839++) {
+									out.println("code : ");
+									lgcCode[i1839]=keyboard.nextInt();
+								}
+								for(int i1843=0; i1843<nbOfLgc; i1843++) {
+									
+									
+								}
+								
+								
+								
+								
+								
+							}
+							
+							
+						}
+						
+						
+						
+						
+//						codeDsh = intGetsInt("codeDsh","bse","PamUrgBF",rg);
+//						updtBse(codeDsh, "PamOnly");
+//						if(nbOfInt("ermPam","codeDsh",codeDsh) == 1) {
+//							addToPan(codeDsh);
+//						}
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+
+					}
+
+
+
+					int i1310 = keyboard.nextInt();
+
+
+
+
+
+
+
+
+					i=1;
+
+					//					else if(i==1) {
+					if(i==1) {
+						codeDsh = 47;
+						updtBse(codeDsh, "All"); addToPan(codeDsh);
+
+						for (int rg = 1 ; rg <=5 ; rg++) {
+							if (nbOfInt("bse","PamUrgBf",rg) == 1) {
+								codeDsh = intGetsInt("codeDsh","bse","PamUrgBf",rg);
+								updtBse(codeDsh, "PamOnly");
+								if(nbOfInt("ermPam","codeDsh",codeDsh) == 1) {
+									addToPan(codeDsh);
+								}
+							} else if (nbOfInt("bse","TCkUrgBf",rg) == 1){
+								codeDsh = intGetsInt("codeDsh","bse","TCkUrgBf",rg);
+								updtBse(codeDsh, "All");
+								if(nbOfInt("ermTCk","codeDsh",codeDsh) == 1) {
+									fromErmTCk(codeDsh);
+								}
+							}
+						}
+					}
+
+					out.print("ajouter une qte : ");
+				}
+			}
+			prNow = prNow + keyboard.nextDouble();
+		} while (prNow<prM[4]);
+
+
+
+		out.println("\n\n FINI FINI FINI \n\n");
+
+
+
+
+		do {
+			int nb = 0;
+			String M = mName2[nb];
+			out.print("nous sommes ds le" + M);
+			nb = nb + 1;
+		} while (prNow<prR1+prR2+prR3+prR4);
+		do {
+			out.print("\nEntrer un codeDsh : ");
+			int codeDsh = keyboard.nextInt();
+			if (nbOfInt("tmpBool","codeDsh",codeDsh) == 0 ) {
+				insertInTmpBool(codeDsh,intGetsString("nameDsh","bse","codeDsh",codeDsh),"","");
+			}
+
+
+			//maj TROIS !!!!
+
+			String askErmPamR = askErmR(codeDsh, "ermPamR");
+			String askErmTCkR = askErmR(codeDsh, "ermTCkR");
+
+			//maj db DEUX
+			if(nbOfRowsIntStr("tmpBool", "codeDsh", codeDsh, "inErmPamYN", "already asked") == 0) {
+				out.println(askErmPamR);
+				if (keyboard.findWithinHorizon(".", 0).charAt(0) != 'n') {
+					updateDouble("bse","dteQtePam",keyboard.nextDouble(),"codeDsh",codeDsh);
+				}
+				updateString("bse","dteQtePam",yyyyMMdd(),"codeDsh",codeDsh);
+				updateString("tmpBool", "inErmPamYN", "already asked", "codeDsh", codeDsh);
+				// ensuite, s'il y en A en stock, on le met dans le PAM et tout est fini
+				// s il y en a 0 en stockR, et que c est APPLICABLE de dmder s il y en a en Tck, ASK !!!! 
+				if (intGetsString("tmpQteErmTCkYN","bse","codeDsh", codeDsh) == "Y"
+						&& nbOfRowsIntStr("tmpBool", "codeDsh", codeDsh, "inErmTCkYN", "already asked") == 0) {
+					out.println(askErmTCkR);
+
+				}
+
+
+				// tmpQteErmTCkYN
+				//				(intGetsString("tmpQteErmTCkYN","bse","codeDsh", codeDsh) == "Y")
+
+
+			}
+
+
+
+			// maj db
+			if (nbOfInt("ermPam","codeDsh",codeDsh) == 0) {
+				if(nbOfRowsIntStr("tmpBool", "codeDsh", codeDsh, "inErmPamYN", "already asked") == 0) {
+					out.println(askErmPamR);
+					updateString("bse","dteQtePam",yyyyMMdd(),"codeDsh",codeDsh); // mettre cette date bcp plus bas dans le code
+					if (keyboard.findWithinHorizon(".", 0).charAt(0) != 'n') {
+						updateDouble("bse","dteQtePam",keyboard.nextDouble(),"codeDsh",codeDsh);
+
+
+
+
+
+						//						out.println("qte : ");
+						insertInPam(codeDsh,intGetsString("nameDsh", "bse", "codeDsh", codeDsh), keyboard.nextDouble());
+					} else {
+						if(
+								nbOfInt("ermTCk","codeDsh",codeDsh) == 0
+								&& nbOfRowsIntStr("tmpBool", "codeDsh", codeDsh, "inErmTCkYN", "already asked") == 0
+								) {
+							out.println(askErmTCkR);
+							if (keyboard.findWithinHorizon(".", 0).charAt(0) == 'y') {
+								out.println("qte : ");
+								insertInErmTCk(codeDsh, intGetsString("nameDsh","bse","codeDsh",codeDsh), keyboard.nextDouble(), intGetsDouble("qteTCk","bse","codeDsh",codeDsh));
+							}
+							updateString("tmpBool", "inErmTCkYN", "already asked", "codeDsh", codeDsh);
+						}
+					}
+					updateString("tmpBool", "inErmPamYN", "already asked", "codeDsh", codeDsh);
+				} else if (
+						nbOfInt("ermTCk","codeDsh",codeDsh) == 0
+						&& (nbOfRowsIntStr("tmpBool", "codeDsh", codeDsh, "inErmTCkYN", "already asked") == 0)
+						) {
+					out.println(askErmTCkR);
+					if (keyboard.findWithinHorizon(".", 0).charAt(0) == 'y') {
+						out.println("qte : ");
+						insertInErmTCk(codeDsh, intGetsString("nameDsh","bse","codeDsh",codeDsh), keyboard.nextDouble(), intGetsDouble("qteTCk","bse","codeDsh",codeDsh));
+					}
+					updateString("tmpBool", "inErmTCkYN", "already asked", "codeDsh", codeDsh);
+				}
+			}
+
+			if(nbOfInt("ermPam","codeDsh",codeDsh) == 1) {
+				fromPamToPan(codeDsh);
+			} else if (nbOfInt("ermTCk","codeDsh",codeDsh) == 1) {
+				fromErmTCk(codeDsh);
+			} else {
+				needTb(codeDsh);
+			}
+
+		} while (prNow<prR1+prR2+prR3+prR4);
+
+		out.println("PAN terminé");
+
+		keyboard.close();
+	}
+
+
+
+
+
+	private static String add5D(String yyyyMMdd){
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+		Calendar c = Calendar.getInstance();
+		String dtP5="";
+		try {
+			c.setTime(sdf.parse(yyyyMMdd));
+		} catch (ParseException e) {
+			e.printStackTrace();
+		}c.add(Calendar.DATE, 5);
+		dtP5 = sdf.format(c.getTime());
+		return dtP5;
+	}
+
+	private static String yyyyMMdd(){
+		Date date = Calendar.getInstance().getTime();  
+		DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");  
+		return dateFormat.format(date);
+	}
+
+	private static void askEtMajTmpQteErmR(int codeDsh, String tmpQteErm){
+		Scanner keyboard = new Scanner(System.in);
+		String ermType = "";
+		if (tmpQteErm == "tmpQteErmPam") {
+			ermType = "Pam";
+		} else {
+			ermType = "TCk";
+		}
+
+		if (ermType == "Pam" || ermType == "TCk" && nbOfRowsIntStr("bse", "codeDsh",codeDsh, "tmpQteErmTCkYN", "Y") == 1) {
+			out.print("Le " + intGetsString("dteQte"+ermType,"bse","codeDsh",codeDsh) + ", vous aviez dit qu'il restait " 
+					+ intGetsDouble("tmpQteErm"+ermType,"bse","codeDsh",codeDsh) + " \"" + intGetsString("nameDsh","bse","codeDsh",codeDsh) 
+					+ "\" dans le erm" + ermType + "R. Entrer la nouvelle qte (et \"y\" si ça n'a pas changé) : ");
+			String s = keyboard.nextLine();
+			if(s.equals("y")) {
+			} else {
+				updateDouble("bse","tmpQteErm"+ermType,Double.parseDouble(s),"codeDsh",codeDsh);
+			}
+			updateString("bse","dteQte"+ermType,yyyyMMdd(),"codeDsh",codeDsh);
+			updateString("tmpBool", "inErm"+ermType+"YN", "already asked", "codeDsh", codeDsh);
+
+			
+			
+			
+			
+			if(intGetsString("pamBbfYN","bse", "codeDsh",codeDsh).equals("Y") 
+					&& intGetsDouble("tmpQteErmPam","bse","codeDsh",codeDsh)>0){
+				out.print("On " + intGetsString("ansPamDCkd","bse","codeDsh",codeDsh) + ", you said it was ckd on " 
+						+ intGetsString("PamDCkd","bse","codeDsh",codeDsh) + ". Enter new yyyyMMdd (and \"y\" if same) : ");
+				String s2 = keyboard.nextLine();
+				if(s2.equals("y")) {
+				} else {
+					updateString("bse","PamDCkd",s2,"codeDsh",codeDsh);
+					updateString("bse","PamBBf",add5D(s2),"codeDsh",codeDsh);
+				}
+				updateString("bse","ansPamDCkd",yyyyMMdd(),"codeDsh",codeDsh);
+				updateString("tmpBool", "PamDCkdYN", "already asked", "codeDsh", codeDsh);
+			}
+
+			if(intGetsDouble("tmpQteErm"+ermType,"bse","codeDsh",codeDsh)>0) {
+				if(ermType == "TCk") {
+					insertInErmTCk(codeDsh,intGetsString("nameDsh","bse","codeDsh",codeDsh),
+							intGetsDouble("tmpQteErmTCk","bse","codeDsh",codeDsh), intGetsDouble("qteTCk","bse","codeDsh",codeDsh));
+				} else {
+					insertInPam(codeDsh,intGetsString("nameDsh","bse","codeDsh",codeDsh),intGetsDouble("tmpQteErmPam","bse","codeDsh",codeDsh));
+				}
+			}
+		}
+		//		keyboard.close();
+	}
+
+
+	// méthode à supprimer
+	private static String askErmR(int codeDsh, String qteErmCol) {
+		//	private static String askErmR(String dteQteCol, int codeDsh, String tmpQteErmCol, String qteErmCol){
+		String question = "";
+		if(qteErmCol == "ermPam") {
+
+
+		} else {
+
+
+		}
+
+
+		//		int intVal, String stringVal) {
+		//		return "Le " + intGetsString(dteQteCol,"bse","codeDsh",codeDsh) + ", vous aviez dit qu'il restait " 
+		//				+ intGetsDouble(tmpQteErmCol,"bse","codeDsh",codeDsh) + " \"" + intGetsString("nameDsh","bse","codeDsh",codeDsh) 
+		//				+ "\" dans le " + stringVal + ". Entrer la nouvelle qte (et \"n\" si ça n'a pas changé) : ";
+
+		return "";
+	}	
+
+	private static int nbOfRowsIntStr(String table, String intCol, int intVal, String stringCol, String stringVal1) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		int nb = 0;
+		try {
+			String sql = "select count (*) from " + table + " where " + intCol + " = " + intVal + " and " + stringCol + " = ?";
+			ps = con.prepareStatement(sql);
+			ps.setString(1, stringVal1);
+			rs = ps.executeQuery();
+			nb = rs.getInt(1);
+			//			out.println("");
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		} finally {
+			try {
+				rs.close();
+				ps.close();
+				con.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		return nb;
+	}
+
+
+
+
+	private static int nbOfRowsIntStr2V(String table, String intColInput, int intVal1Input, int intVal2Input, String stringColInput, String stringValInput) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		int nb = 0;
+		try {
+			String sql = "select count (*) from " + table + " where " 
+					+ intColInput + " = " + intVal1Input + " or " + intVal2Input
+					+ " and " + stringColInput + " = ? ";
+			ps = con.prepareStatement(sql);
+			ps.setString(1, stringValInput);
+			rs = ps.executeQuery();
+			nb = rs.getInt(1);
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		} finally {
+			try {
+				rs.close();
+				ps.close();
+				con.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		return nb;
+	}
+
+	
+	
+	
+	private static int nbOfDshWthRxRgBbfInPam(String table, 
+			String strCol1Input,  String strVal1Input,
+			String strCol2Input,  String strVal2Input,
+			String intCol1Input,  int intVal1Input,
+			String intCol2Input,  int intVal2Input) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		int nb = 0;
+		try {
+			String sql = "select count (*) from " + table + " where " 
+					+ strCol1Input + " = ? "
+					+ " and " + strCol2Input + " = ? "
+					+ " and " + intCol1Input + " = " + intVal1Input
+					+ " and " + intCol2Input + " > " + intVal2Input + " ";
+			ps = con.prepareStatement(sql);
+			ps.setString(1, strVal1Input);
+			ps.setString(2, strVal2Input);
+			rs = ps.executeQuery();
+			nb = rs.getInt(1);
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		} finally {
+			try {
+				rs.close();
+				ps.close();
+				con.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		return nb;
+	}
+	
+	private static String[] getDtesToCompareThem(
+			int nbOfRes,
+			String strColOutput,
+			String table, 
+			String strCol1Input,  String strVal1Input,
+			String strCol2Input,  String strVal2Input,
+			String intCol1Input,  int intVal1Input,
+			String intCol2Input,  int intVal2Input) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		String strArray[];
+		strArray = new String[nbOfRes];
+		try {
+			String sql = "Select " + strColOutput + " from " + table + " where "
+					+ strCol1Input + " = ? "
+					+ " and " + strCol2Input + " = ? "
+					+ " and " + intCol1Input + " = " + intVal1Input
+					+ " and " + intCol2Input + " > " + intVal2Input + " ";
+			ps = con.prepareStatement(sql);
+			ps.setString(1, strVal1Input);
+			ps.setString(2, strVal2Input);
+			rs = ps.executeQuery();
+			int i = 0;
+			while(rs.next()){
+				String strVal = "";
+				strVal = rs.getString(1);
+				strArray[i]=strVal;
+				i = i+1;
+			}
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		} finally {
+			try {
+				rs.close();
+				ps.close();
+				con.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		return strArray;
+	}
+
+	private static int[] StringX2GetsMultInt(int nbOfRes, String intCol, String table, String strCol1, String strVal1, String strCol2, String strVal2) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		int intArray[];
+		intArray = new int[nbOfRes];
+		try {
+			String sql = "Select " + intCol + " from " + table + " where " + strCol1 + " = ? and " + strCol2 + " = ? ";
+			ps = con.prepareStatement(sql);
+			ps.setString(1, strVal1);
+			ps.setString(2, strVal2);
+			rs = ps.executeQuery();
+			int i = 0;
+			while(rs.next()){
+				int intVal = 0;
+				intVal = rs.getInt(1);
+				intArray[i]=intVal;
+				i = i+1;
+			}
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		} finally {
+			try {
+				rs.close();
+				ps.close();
+				con.close();
+			} catch (SQLException e) {
+				System.out.println(e.toString());
+			}
+		}
+		return intArray;
+	}
+
+
+
+
+
+	private static int nbOfRows2Str(String table, String stringCol1, String stringVal1, String stringCol2, String stringVal2) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		int nb = 0;
+		try {
+			String sql = "select count (*) from " + table + " where " + stringCol1 + " = ? and " + stringCol2 + " = ? ";
+			ps = con.prepareStatement(sql);
+			ps.setString(1, stringVal1);
+			ps.setString(2, stringVal2);
+			rs = ps.executeQuery();
+			nb = rs.getInt(1);
+			//			out.println("");
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		} finally {
+			try {
+				rs.close();
+				ps.close();
+				con.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		return nb;
+	}
+
+
+	private static int nbOfInt(String table, String intColInput, int intValInput) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		int nb = 0;
+		try {
+			String sql = "select count (*) from " + table + " where " + intColInput + " = " + intValInput;
+			ps = con.prepareStatement(sql);
+			rs = ps.executeQuery();
+			nb = rs.getInt(1);
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		} finally {
+			try {
+				rs.close();
+				ps.close();
+				con.close();				
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		return nb;
+	}
+
+
+	
+	
+	private static int nbOfRwsWthIntIn1Col(String table, String intColInput, int intValInput) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		int nb = 0;
+		try {
+			String sql = "select count (*) from " + table + " where " + intColInput + " = " + intValInput;
+			ps = con.prepareStatement(sql);
+			rs = ps.executeQuery();
+			nb = rs.getInt(1);
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		} finally {
+			try {
+				rs.close();
+				ps.close();
+				con.close();				
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		return nb;
+	}
+	
+
+
+	private static void intDelsRow(String table, String dblColInput, int intValInput) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		try {
+			String sql = "delete from " + table + " WHERE " + dblColInput + " = ? ";
+			ps = con.prepareStatement(sql);
+			ps.setInt(1, intValInput);
+			ps.execute();
+		} catch (Exception e) {			
+			System.out.println(e.toString());
+		} finally {
+			try {
+				ps.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+
+
+	private static void deleteTable(String table) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		try {
+			String sql = "delete from " + table;
+			ps = con.prepareStatement(sql);
+			ps.execute();
+			//				out.println("");
+		} catch (Exception e) {			
+			System.out.println(e.toString());
+		} finally {
+			try {
+				ps.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	private static void addToPan(int codeDsh){
+		if(nbOfInt("ermPam","codeDsh",codeDsh) == 1) {
+			//			fromPamToPan(codeDsh);
+			fromPamToPan2(codeDsh,1);
+		} else if (nbOfInt("ermTCk","codeDsh",codeDsh) == 1) {
+			//			fromErmTCk(codeDsh);
+			fromTckToPan2(codeDsh,1);
+		} else {
+			//			needTb(codeDsh);
+			needTb2(codeDsh,1);
+		}
+	}
+
+	private static void fromPamToPan(int codeDsh) {
+		insertInPan(mName3[iMx], codeDsh, intGetsString("nameDsh","ermPam","codeDsh",codeDsh), 1);
+		updateDouble("ermPam","qteDsh",intGetsDouble("qteDsh","ermPam","codeDsh",codeDsh)-1,"codeDsh",codeDsh);
+		checkBse(codeDsh);
+	}	
+
+	private static void fromBseToPam(int codeDsh, double qteDsh) {
+		// Si je veux ajouter à la main qqch de bse vers pam, en rentrant le code et la qte 
+		insertInPam(codeDsh,intGetsString("nameDsh","bse","codeDsh",codeDsh), qteDsh);
+		out.println("La ligne a été ajoutée de bse vers pam.");
+	}	
+
+	private static void fromErmTCk(int codeDsh) {
+		insertInCkLstMoreFull(codeDsh,intGetsString("nameDsh","ermTCk","codeDsh",codeDsh),
+				intGetsDouble("qteTCk","bse","codeDsh",codeDsh),9999,9999, mName3[iMx]);
+		insertInPam(codeDsh,intGetsString("nameDsh","ermTCk","codeDsh",codeDsh),intGetsDouble("qteTCk","ermTCk","codeDsh",codeDsh));
+		updateDouble("ermTCk","qteDsh",intGetsDouble("qteDsh","ermTCk","codeDsh",codeDsh)-intGetsDouble("qteTCk","ermTCk","codeDsh",codeDsh),"codeDsh",codeDsh);
+		insertInPan(mName3[iMx], codeDsh, intGetsString("nameDsh","ermTCk","codeDsh",codeDsh), 1);
+		updateDouble("ermPam","qteDsh",intGetsDouble("qteDsh","ermPam","codeDsh",codeDsh)-1,"codeDsh",codeDsh);
+		checkBse(codeDsh);
+	}	
+
+	private static void needTb(int codeDsh) {
+		//		insertInShpLst(codeDsh, intGetsString("nameDsh","sprMrch","codeDsh",codeDsh), intGetsDouble("qteDsh","sprMrch","codeDsh",codeDsh));
+		insertInPam(codeDsh, intGetsString("nameDsh","sprMrch","codeDsh",codeDsh), intGetsDouble("qteDsh","sprMrch","codeDsh",codeDsh));
+		insertInPan(mName3[iMx], codeDsh, intGetsString("nameDsh","sprMrch","codeDsh",codeDsh), 1);
+		updateDouble("ermPam","qteDsh",intGetsDouble("qteDsh","ermPam","codeDsh",codeDsh)-1,"codeDsh",codeDsh);
+		checkBse(codeDsh);		
+	}	
+
+	private static void needTb2(int codeDsh, double qteMinTB) {
+		int nbPk = (int)Math.floor(qteMinTB/intGetsDouble("qteSprMrch","bse","codeDsh",codeDsh)) +1;
+		String nameDsh = intGetsString("nameDsh","bse","codeDsh",codeDsh);
+		double qte1Pk = intGetsDouble("qteSprMrch","bse","codeDsh",codeDsh);
+		insertInShpLstFull(codeDsh,nameDsh, qte1Pk*nbPk, nbPk, qte1Pk, mName3[iMx]);
+		if(nbOfRowsIntStr("bse", "codeDsh",codeDsh, "tmpQteErmTCkYN", "Y") == 1) {
+			double qteInFTCk = intGetsDouble("qteTCk","bse","codeDsh",codeDsh);
+			insertInErmTCkFull(codeDsh,nameDsh, qte1Pk*nbPk, qteInFTCk,(qte1Pk*nbPk)/qteInFTCk );
+			fromTckToPan2(codeDsh,qteMinTB);
+		} else {
+			insertInPam(codeDsh, nameDsh, qte1Pk*nbPk);
+			fromPamToPan2(codeDsh,qteMinTB);
+		}
+	}	
+
+	private static void fromTckToPan2(int codeDsh, double qteMinTB) {
+		String nameDsh = intGetsString("nameDsh","bse","codeDsh",codeDsh);
+		double qteInFTCk = intGetsDouble("qteTCk","bse","codeDsh",codeDsh);
+		double qteDsh = intGetsDouble("qteDsh","ermTCk","codeDsh",codeDsh);
+		int nbFTCk = (int)Math.floor(qteMinTB/qteInFTCk) +1;
+		double qteTltTCk = qteInFTCk*nbFTCk;
+		insertInPam(codeDsh, nameDsh, qteTltTCk);
+		insertInCkLstMoreFull(codeDsh,nameDsh,qteInFTCk,nbFTCk, qteTltTCk,mName3[iMx]);
+		updateDouble("ermTCk","qteDsh", qteDsh - qteTltTCk, "codeDsh",codeDsh);
+		updateDouble("ermTCk","nbFTCk", qteTltTCk/ qteInFTCk, "codeDsh",codeDsh);
+		if(qteDsh - qteTltTCk == 0) {
+			intDelsRow("ermTCk","codeDsh",codeDsh);
+		}
+		fromPamToPan2(codeDsh,qteMinTB);
+	}	
+
+	private static void fromPamToPan2(int codeDsh, double qteMinTB) {
+		String nameDsh = intGetsString("nameDsh","bse","codeDsh",codeDsh);
+		double qteDsh = intGetsDouble("qteDsh","ermPam","codeDsh",codeDsh);
+		insertInPan(mName3[iMx], codeDsh, nameDsh, qteMinTB);
+		updateDouble("ermPam","qteDsh", qteDsh-qteMinTB, "codeDsh",codeDsh);
+		if(qteDsh-qteMinTB == 0) {
+			intDelsRow("ermPam","codeDsh",codeDsh);
+		}
+		checkBse(codeDsh);		
+	}	
+
+	private static String intGetsString(String colOutput, String table, String colInput, int intInput) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		String stringOutput = "";
+		try {
+			String sql = "Select " + colOutput + " from " + table + " where " + colInput + " = ? ";
+			ps = con.prepareStatement(sql);
+			ps.setInt(1, intInput);
+			rs = ps.executeQuery();
+			stringOutput = rs.getString(1);
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		} finally {
+			try {
+				rs.close();
+				ps.close();
+				con.close();
+			} catch (SQLException e) {
+				System.out.println(e.toString());
+			}
+		}
+		return stringOutput;
+	}	
+
+	private static double intGetsDouble(String colOutput, String table, String colInput, int intInput) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		double doubleOutput = 0;
+		try {
+			String sql = "Select " + colOutput + " from " + table + " where " + colInput + " = ? ";
+			ps = con.prepareStatement(sql);
+			ps.setInt(1, intInput);
+			rs = ps.executeQuery();
+			doubleOutput = rs.getDouble(1);
+			//			out.println("");
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		} finally {
+			try {
+				rs.close();
+				ps.close();
+				con.close();
+			} catch (SQLException e) {
+				System.out.println(e.toString());
+			}
+		}
+		return doubleOutput;
+	}	
+
+	private static int intGetsInt(String colOutput, String table, String colInput, int intInput) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		int intOutput = 0;
+		try {
+			String sql = "Select " + colOutput + " from " + table + " where " + colInput + " = ? ";
+			ps = con.prepareStatement(sql);
+			ps.setInt(1, intInput);
+			rs = ps.executeQuery();
+			intOutput = rs.getInt(1);
+			//			out.println("");
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		} finally {
+			try {
+				rs.close();
+				ps.close();
+				con.close();
+			} catch (SQLException e) {
+				System.out.println(e.toString());
+			}
+		}
+		return intOutput;
+	}	
+
+	private static int StringGetsInt(String colOutput, String table, String colInput, String stringInput) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		int intOutput = 0;
+		try {
+			String sql = "Select " + colOutput + " from " + table + " where " + colInput + " = ? ";
+			ps = con.prepareStatement(sql);
+			ps.setString(1, stringInput);
+			rs = ps.executeQuery();
+			intOutput = rs.getInt(1);
+			//			out.println("");
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		} finally {
+			try {
+				rs.close();
+				ps.close();
+				con.close();
+			} catch (SQLException e) {
+				System.out.println(e.toString());
+			}
+		}
+		return intOutput;
+	}	
+
+
+	private static int[] IntGetsMultInt(int nbOfRes, String intColOutput, String table, String intColInput, int intValInput) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		int intArray[];
+		intArray = new int[nbOfRes];
+		try {
+			String sql = "Select " + intColOutput + " from " + table + " where " + intColInput + " = ? ";
+			ps = con.prepareStatement(sql);
+			ps.setInt(1, intValInput);
+			rs = ps.executeQuery();
+			int i = 0;
+			while(rs.next()){
+				int intVal = 0;
+				intVal = rs.getInt(1);
+				intArray[i]=intVal;
+				i = i+1;
+			}
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		} finally {
+			try {
+				rs.close();
+				ps.close();
+				con.close();
+			} catch (SQLException e) {
+				System.out.println(e.toString());
+			}
+		}
+		return intArray;
+	}	
+	
+	
+
+	private static double[] strIntGetMultDble(int nbOfRes, String dbleColOutput, String table, String strColInput,
+			String strValInput, String intColInput, int intValInput) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		double doubleArray[];
+		doubleArray = new double[nbOfRes-1];
+		try {
+			String sql = "Select " + dbleColOutput + " from " + table + " where " + strColInput + " = ? and " + intColInput + " = ? ";
+			ps = con.prepareStatement(sql);
+			ps.setString(1, strValInput);
+			ps.setInt(2, intValInput);
+			rs = ps.executeQuery();
+			int i = 0;
+			while(rs.next()){
+				double doubleVal = 0;
+				doubleVal = rs.getDouble(1);
+				doubleArray[i]=doubleVal;
+				i = i+1;
+			}
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		} finally {
+			try {
+				rs.close();
+				ps.close();
+				con.close();
+			} catch (SQLException e) {
+				System.out.println(e.toString());
+			}
+		}
+		return doubleArray;
+	}	
+
+
+
+
+	private static double[] strInt2VGetMultDble(int nbOfRes, String dbleColOutput, String table, String strColInput,
+			String strValInput, String intColInput, int intVal1Input, int intVal2Input) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		double doubleArray[];
+		doubleArray = new double[nbOfRes-1];
+		try {
+			//			String sql = "Select " + dbleColOutput + " from " + table + " where " + strColInput + " = ? and " + intColInput + " = ? ";
+			String sql = "Select " + dbleColOutput + " from " + table + " where " + strColInput + " = ? and " + intColInput + " in (?,?) ";
+			ps = con.prepareStatement(sql);
+			ps.setString(1, strValInput);
+			ps.setInt(2, intVal1Input);
+			ps.setInt(3, intVal2Input);
+			rs = ps.executeQuery();
+			int i = 0;
+			while(rs.next()){
+				double doubleVal = 0;
+				doubleVal = rs.getDouble(1);
+				doubleArray[i]=doubleVal;
+				i = i+1;
+			}
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		} finally {
+			try {
+				rs.close();
+				ps.close();
+				con.close();
+			} catch (SQLException e) {
+				System.out.println(e.toString());
+			}
+		}
+		return doubleArray;
+	}	
+
+
+
+
+	private static int StringX2GetsInt(String intCol, String table, String strCol1, String strVal1, String strCol2, String strVal2) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		int intVal = 0;
+		try {
+			String sql = "Select " + intCol + " from " + table + " where " + strCol1 + " = ? and " + strCol2 + " = ? ";
+			ps = con.prepareStatement(sql);
+			ps.setString(1, strVal1);
+			ps.setString(2, strVal2);
+			rs = ps.executeQuery();
+			intVal = rs.getInt(1);
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		} finally {
+			try {
+				rs.close();
+				ps.close();
+				con.close();
+			} catch (SQLException e) {
+				System.out.println(e.toString());
+			}
+		}
+		return intVal;
+	}	
+
+
+
+	private static int StrIntGetInt(String intColOutput, String table, String strColInput,
+			String strValInput, String intColInput, int intValInput) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		int intVal = 0;
+		try {
+			String sql = "Select " + intColOutput + " from " + table + " where " + strColInput + " = ? and " + intColInput + " = ? ";
+			ps = con.prepareStatement(sql);
+			ps.setString(1, strValInput);
+			ps.setInt(2, intValInput);
+			rs = ps.executeQuery();
+			intVal = rs.getInt(1);
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		} finally {
+			try {
+				rs.close();
+				ps.close();
+				con.close();
+			} catch (SQLException e) {
+				System.out.println(e.toString());
+			}
+		}
+		return intVal;
+	}	
+
+
+
+
+	//	private static void updtBse(int codeDsh){
+	private static void updtBse(int codeDsh, String AllOrPamOnly){
+		if (nbOfInt("tmpBool","codeDsh",codeDsh) == 0 ) {
+			insertInTmpBool(codeDsh,intGetsString("nameDsh","bse","codeDsh",codeDsh),"","");
+		}
+		if (nbOfInt("ermPam","codeDsh",codeDsh) == 0  && nbOfInt("ermTCk","codeDsh",codeDsh) == 0) {
+			if (nbOfRowsIntStr("tmpBool", "codeDsh", codeDsh, "inErmPamYN", "already asked") == 0) {
+				askEtMajTmpQteErmR(codeDsh,"tmpQteErmPam");
+				if(intGetsDouble("tmpQteErmPam","bse","codeDsh",codeDsh) == 0 && AllOrPamOnly == "All") {
+					askEtMajTmpQteErmR(codeDsh,"tmpQteErmTCk");
+				}
+			} else if (nbOfRowsIntStr("tmpBool", "codeDsh", codeDsh, "inErmTCkYN", "already asked") == 0  && AllOrPamOnly == "All") {
+				askEtMajTmpQteErmR(codeDsh,"tmpQteErmTCk");
+			}
+		}
+	}
+
+
+
+
+	private static void updateDouble(String table, String colOutput, double doubleInput, String colInput, int intInput) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		try {
+			String sql = "UPDATE " + table + " set " + colOutput + " = ? WHERE " + colInput + " = ? ";
+			ps =con.prepareStatement(sql);
+			ps.setDouble(1, doubleInput);
+			ps.setInt(2, intInput);
+			ps.execute();
+			//			System.out.println("");
+		} catch (SQLException e) {
+			System.out.println(e.toString());
+		}
+	}
+
+	private static void updateString(String table, String colOutput, String StringInput, String colInput, int intInput) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		try {
+			String sql = "UPDATE " + table + " set " + colOutput + " = ? WHERE " + colInput + " = ? ";
+			ps =con.prepareStatement(sql);
+			ps.setString(1, StringInput);
+			ps.setInt(2, intInput);
+			ps.execute();
+			//			System.out.println("");
+		} catch (SQLException e) {
+			System.out.println(e.toString());
+		}
+	}
+
+	private static void insertInTmpBool(int codeDsh, String nameDsh, String inErmPamYN, String inErmTCkYN) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		try {
+			String sql = "INSERT INTO tmpBool(codeDsh, nameDsh, inErmPamYN, inErmTCkYN) VALUES(?,?,?,?)";
+			ps = con.prepareStatement(sql);
+			ps.setInt(1, codeDsh);
+			ps.setString(2, nameDsh);
+			ps.setString(3, inErmPamYN);
+			ps.setString(4, inErmTCkYN);
+			ps.execute();
+			//			out.println("");
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		}
+	}
+
+
+
+
+
+
+
+
+	private static void insertInPan(String rx, int codeDsh, String nameDsh, double qteDsh) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		try {
+			String sql = "INSERT INTO PAN(rx, codeDsh, nameDsh, qteDsh) VALUES(?,?,?,?)";
+			ps = con.prepareStatement(sql);
+			ps.setString(1, rx);
+			ps.setInt(2, codeDsh);
+			ps.setString(3, nameDsh);
+			ps.setDouble(4, qteDsh);
+			ps.execute();
+			out.println("Dans le cadre du " + rx + ", " + qteDsh + " \"" + nameDsh + "\" was added to PAN.");
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		}
+	}
+
+	private static void insertInShpLst(int codeDsh, String nameDsh, double qteDsh, int nbPk, double qte1Pk) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		try {
+			String sql = "INSERT INTO ShpLst(codeDsh, nameDsh, qteDsh, nbPk, qte1Pk) VALUES(?,?,?,?,?)";
+			ps = con.prepareStatement(sql);
+			ps.setInt(1, codeDsh);
+			ps.setString(2, nameDsh);
+			ps.setDouble(3, qteDsh);
+			ps.setInt(4, nbPk);
+			ps.setDouble(5, qte1Pk);
+			ps.execute();
+			//			out.println("");
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		}
+	}
+
+
+	private static void insertInShpLstFull(int codeDsh, String nameDsh, double qteDsh, int nbPk, double qte1Pk, String rx) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		try {
+			String sql = "INSERT INTO ShpLst(codeDsh, nameDsh, qteDsh, nbPk, qte1Pk, rx) VALUES(?,?,?,?,?,?)";
+			ps = con.prepareStatement(sql);
+			ps.setInt(1, codeDsh);
+			ps.setString(2, nameDsh);
+			ps.setDouble(3, qteDsh);
+			ps.setInt(4, nbPk);
+			ps.setDouble(5, qte1Pk);
+			ps.setString(6, rx);
+			ps.execute();
+			//			out.println("");
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		}
+	}
+
+
+	private static void insertInCkLst(int codeDsh, String nameDsh, double qteTCk) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		try {
+			String sql = "INSERT INTO CkLst(codeDsh, nameDsh, qteTCk) VALUES(?,?,?)";
+			ps = con.prepareStatement(sql);
+			ps.setInt(1, codeDsh);
+			ps.setString(2, nameDsh);
+			ps.setDouble(3, qteTCk);
+			ps.execute();
+			//			out.println("");
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		}
+	}
+
+
+	private static void insertInCkLstFull(int codeDsh, String nameDsh, double qteTCk,double nbFTCk, double qteDsh) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		try {
+			String sql = "INSERT INTO CkLst(codeDsh, nameDsh, qteTCk, nbFTCk, qteDsh ) VALUES(?,?,?,?,?)";
+			ps = con.prepareStatement(sql);
+			ps.setInt(1, codeDsh);
+			ps.setString(2, nameDsh);
+			ps.setDouble(3, qteTCk);
+			ps.setDouble(4, nbFTCk);
+			ps.setDouble(5, qteDsh);
+			ps.execute();
+			//			out.println("");
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		}
+	}
+
+
+	private static void insertInCkLstMoreFull(int codeDsh, String nameDsh, double qteTCk,double nbFTCk, double qteDsh, String rx) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		try {
+			String sql = "INSERT INTO CkLst(codeDsh, nameDsh, qteTCk, nbFTCk, qteDsh, rx ) VALUES(?,?,?,?,?,?)";
+			ps = con.prepareStatement(sql);
+			ps.setInt(1, codeDsh);
+			ps.setString(2, nameDsh);
+			ps.setDouble(3, qteTCk);
+			ps.setDouble(4, nbFTCk);
+			ps.setDouble(5, qteDsh);
+			ps.setString(6, rx);
+			ps.execute();
+			//			out.println("");
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		}
+	}
+
+
+
+	private static void insertInPam(int codeDsh, String nameDsh, double qteDsh) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		try {
+			String sql = "INSERT INTO ermPam(codeDsh, nameDsh, qteDsh) VALUES(?,?,?)";
+			ps = con.prepareStatement(sql);
+			ps.setInt(1, codeDsh);
+			ps.setString(2, nameDsh);
+			ps.setDouble(3, qteDsh);
+			ps.execute();
+			//			out.println("");
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		}
+	}
+
+	private static void insertInErmTCkFull(int codeDsh, String nameDsh, double qteDsh, double qteTCk, double nbFTCk) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		try {
+			String sql = "INSERT INTO ermTCk(codeDsh, nameDsh, qteDsh, qteTCk, nbFTCk) VALUES(?,?,?,?,?)";
+			ps = con.prepareStatement(sql);
+			ps.setInt(1, codeDsh);
+			ps.setString(2, nameDsh);
+			ps.setDouble(3, qteDsh);
+			ps.setDouble(3, qteTCk);
+			ps.setDouble(4, nbFTCk);
+			ps.execute();
+			//			out.println("");
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		}
+	}
+
+	private static void insertInErmTCk(int codeDsh, String nameDsh, double qteDsh, double qteTCk) {
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+		try {
+			String sql = "INSERT INTO ermTCk(codeDsh, nameDsh, qteDsh, qteTCk) VALUES(?,?,?,?)";
+			ps = con.prepareStatement(sql);
+			ps.setInt(1, codeDsh);
+			ps.setString(2, nameDsh);
+			ps.setDouble(3, qteDsh);
+			ps.setDouble(4, qteTCk);
+			ps.execute();
+			//			out.println("");
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		}
+	}
+
+
+
+	//	private static void insertInBse(String rx, int codeDsh, String nameDsh, double qteDsh) {
+	//		Connection con = DbConnection.connect();
+	//		PreparedStatement ps = null;
+	//		try {
+	//			String sql = "INSERT INTO bse(rx, codeDsh, nameDsh, qteDsh) VALUES(?,?,?,?)";
+	//			ps = con.prepareStatement(sql);
+	//			ps.setString(1, rx);
+	//			ps.setInt(2, codeDsh);
+	//			ps.setString(3, nameDsh);
+	//			ps.setDouble(4, qteDsh);
+	//			ps.execute();
+	//			//			out.println("");
+	//		} catch(SQLException e) {
+	//			System.out.println(e.toString());
+	//		}
+	//	}
+
+
+
+
+	private static void insertInBse() { // eventually, I will add the new dsh by hand. but do not delete. It could be helpful.
+
+		Scanner keyboard = new Scanner(System.in);
+
+		int numUnique[];
+		numUnique = new int[15];
+
+		String bseColName[];
+		bseColName = new String[15];
+		String bseColType[];
+		bseColType = new String[15];
+
+		bseColName[0] = "R3YN";
+		bseColType[0] = "String";
+
+		bseColName[1] = "rnkInCtgDft";
+		bseColType[1] = "Int";
+
+		bseColName[2] = "ctg";
+		bseColType[2] = "String";
+
+		bseColName[3] = "codeDsh";
+		bseColType[3] = "Int";
+
+		bseColName[4] = "nameDsh";
+		bseColType[4] = "String";
+
+		bseColName[5] = "prDsh";
+		bseColType[5] = "Double";
+
+		bseColName[6] = "qteTCk";
+		bseColType[6] = "Double";
+
+		bseColName[7] = "qteTCkYN";
+		bseColType[7] = "String";
+
+		bseColName[8] = "qteSprMrch";
+		bseColType[8] = "Double";
+
+		bseColName[9] = "qteSprMrchYN";
+		bseColType[9] = "String";
+
+		bseColName[10] = "tmpQteErmPam";
+		bseColType[10] = "Double";
+
+		bseColName[11] = "dteQtePam";
+		bseColType[11] = "String";
+
+		bseColName[12] = "tmpQteErmTCk";
+		bseColType[12] = "Double";
+
+		bseColName[13] = "dteQteTCk";
+		bseColType[13] = "String";
+
+		bseColName[14] = "tmpQteErmTCkYN";
+		bseColType[14] = "String";
+
+		String stringCol[];
+		stringCol = new String[8];
+		stringCol[0] = bseColName[0];
+		stringCol[1] = bseColName[2];
+		stringCol[2] = bseColName[4];
+		stringCol[3] = bseColName[7];
+		stringCol[4] = bseColName[9];
+		stringCol[5] = bseColName[11];
+		stringCol[6] = bseColName[13];
+		stringCol[7] = bseColName[14];
+
+		String stringVal[];
+		stringVal = new String[8];
+		for (int i = 0 ; i<=7 ; i++) {
+			stringVal[i]="";
+		}
+
+		String intCol[];
+		intCol = new String[2];
+		intCol[0] = bseColName[1];
+		intCol[1] = bseColName[3];
+
+		int intVal[];
+		intVal = new int[2];
+		for (int i = 0 ; i<=1 ; i++) {
+			intVal[i]=0;
+		}
+
+		String doubleCol[];
+		doubleCol = new String[5];
+		doubleCol[0] = bseColName[5];
+		doubleCol[1] = bseColName[6];
+		doubleCol[2] = bseColName[8];
+		doubleCol[3] = bseColName[10];
+		doubleCol[4] = bseColName[12];
+
+		double doubleVal[];
+		doubleVal = new double[5];
+		for (int i = 0 ; i<=4 ; i++) {
+			doubleVal[i]=0;
+		}
+
+		for (int i =0; i<=7; i++) {
+			out.print("\n Enter a text value for the column \"" + stringCol[0] + "\" : ");
+			stringVal[i] = keyboard.nextLine();
+		}
+		for (int i =0; i<=1; i++) {
+			intVal[i] = keyboard.nextInt();
+		}
+		for (int i =0; i<=4; i++) {
+			doubleVal[i] = keyboard.nextDouble();
+		}
+
+		Connection con = DbConnection.connect();
+		PreparedStatement ps = null;
+
+		String requestPart = "R3YN"; // name of the first column
+		String questMarks = "?";
+		for (int i =1; i<=7; i++) {
+			requestPart = requestPart +  ", " + stringCol[i];
+			questMarks = questMarks + ",?";
+		}
+		for (int i =0; i<=1; i++) {
+			requestPart = requestPart +  ", " + intCol[i];
+			questMarks = questMarks + ",?";
+		}
+		for (int i =0; i<=4; i++) {
+			requestPart = requestPart +  ", " + doubleCol[i];
+			questMarks = questMarks + ",?";
+		}
+
+		try {
+			String sql = "INSERT INTO bse(requestPart) VALUES(questMarks)";
+			ps = con.prepareStatement(sql);
+			for (int i =0; i<=7; i++) {
+				ps.setString(i+1,stringVal[i]);
+			}
+			for (int i =0; i<=1; i++) {
+				ps.setInt(i+1,intVal[i]);
+			}
+			for (int i =0; i<=4; i++) {
+				ps.setDouble(i+1,doubleVal[i]);
+			}
+			ps.execute();
+		} catch(SQLException e) {
+			System.out.println(e.toString());
+		}
+	}
+
+	private static void checkBse(int codeDsh) {
+		//		out.print("Dans le PAN, il y avait un PR de "); out.printf("%.2f %n", prNow);
+		out.print("Dans le PAN, il y avait un PR de "); out.printf("%.2f", prNow);
+		prNow = prNow + intGetsDouble("prDsh","bse","codeDsh",codeDsh);
+		out.print(". Maintenant, il est de : "); out.printf("%.2f", prNow); out.print(". ");
+		for(int i = 0; i<5; i++) {
+			if(prNow >= prM[i] && prNow < prM[i+1]) {
+				iMx = i;
+				System.out.println("Il faut ajouter quelque chose au " + mName3[iMx] + ".");
+				if(i==1) {
+					inR3 = false;
+					inR1 = true;
+				} else if(i==2) {
+					inR1 = false;
+					inR2 = true;
+				} else if(i==3) {
+					inR2 = false;
+					inR4 = true;
+				}	
+			}
+		}
+		if(prNow >=prM[4]) {
+			out.println("PAN terminé");
+			inR4 = false;
+		}
+	}
+
+}
